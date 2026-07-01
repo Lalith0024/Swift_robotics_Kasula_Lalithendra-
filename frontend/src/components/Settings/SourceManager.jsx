@@ -34,6 +34,7 @@ export default function SourceManager({ sources, onCreate, onDelete }) {
         >
           <option value="newsapi">NewsAPI</option>
           <option value="gnews">GNews</option>
+          <option value="zenserp">Zenserp API</option>
           <option value="fred">FRED</option>
         </select>
         <button type="submit" className="btn btn-primary" disabled={!newSource.trim()}>

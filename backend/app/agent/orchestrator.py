@@ -4,6 +4,7 @@ from app.db.database import SessionLocal
 from app.models import db_models
 from app.agent.fetchers.newsapi_fetcher import fetch_newsapi
 from app.agent.fetchers.gnews_fetcher import fetch_gnews
+from app.agent.fetchers.zenserp_fetcher import fetch_zenserp
 from app.agent.filters.dedup import is_duplicate, calculate_hash
 from app.agent.filters.relevance_filter import is_relevant
 from app.agent.summarizer import summarize_article
@@ -32,6 +33,9 @@ async def run_fetch_cycle():
                     raw_articles.extend(articles)
                 elif source.source_type == 'gnews':
                     articles = await fetch_gnews(tracking_list)
+                    raw_articles.extend(articles)
+                elif source.source_type == 'zenserp':
+                    articles = await fetch_zenserp(tracking_list)
                     raw_articles.extend(articles)
             except Exception as e:
                 print(f"Error fetching from {source.name}: {e}")

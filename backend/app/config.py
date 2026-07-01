@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     NEWSAPI_KEY: Optional[str] = None
     GNEWS_API_KEY: Optional[str] = None
     FRED_API_KEY: Optional[str] = None
+    ZENSERP_API_KEY: Optional[str] = None
     
     class Config:
         env_file = ".env"
