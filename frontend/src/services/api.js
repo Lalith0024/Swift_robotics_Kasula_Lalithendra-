@@ -1,6 +1,10 @@
 // In local dev this falls back to localhost.
-// On Vercel, set VITE_API_URL=https://your-render-app.onrender.com/api
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// On Vercel, if VITE_API_URL is configured (with or without /api), we normalize it.
+let baseApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+if (baseApiUrl && !baseApiUrl.endsWith('/api') && !baseApiUrl.endsWith('/api/')) {
+  baseApiUrl = baseApiUrl.replace(/\/$/, '') + '/api';
+}
+export const API_URL = baseApiUrl;
 
 export const api = {
   // News & Indicators
