@@ -1,52 +1,59 @@
 import httpx
 from typing import Dict
-from app.config import settings
 
 async def fetch_fred_indicators() -> Dict:
-    if not settings.FRED_API_KEY:
-        return {"GDP": "N/A", "Inflation": "N/A", "Unemployment": "N/A"}
-        
-    # Standard US series for MVP
+    """
+    Fetches key US macroeconomic indicators using the World Bank API.
+    Completely free, no API key required.
+    Indicators: GDP (current USD), Inflation (CPI %), Unemployment (%)
+    """
+    # World Bank indicator codes
     indicators = {
-        "GDP": "GDP",
-        "Inflation": "CPIAUCSL",
-        "Unemployment": "UNRATE"
+        "GDP": "NY.GDP.MKTP.CD",        # GDP (current USD)
+        "Inflation": "FP.CPI.TOTL.ZG",  # Inflation, CPI (annual %)
+        "Unemployment": "SL.UEM.TOTL.ZS" # Unemployment, total (% of labor force)
     }
-    
+
     results = {}
+
     async with httpx.AsyncClient() as client:
-        for name, series_id in indicators.items():
+        for name, indicator_code in indicators.items():
             try:
                 response = await client.get(
-                    "https://api.stlouisfed.org/fred/series/observations",
+                    f"https://api.worldbank.org/v2/country/US/indicator/{indicator_code}",
                     params={
-                        "series_id": series_id,
-                        "api_key": settings.FRED_API_KEY,
-                        "file_type": "json",
-                        "sort_order": "desc",
-                        "limit": 1
+                        "format": "json",
+                        "mrv": 1,      # Most recent value
+                        "per_page": 1
                     },
                     timeout=10.0
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    obs = data.get("observations", [])
-                    if obs:
-                        val = obs[0].get("value")
-                        # Format slightly
-                        if name == "Unemployment" or name == "Inflation":
-                            results[name] = f"{val}%"
-                        elif name == "GDP":
-                            results[name] = f"${val}B"
+                    # World Bank returns [metadata, [data_points]]
+                    if isinstance(data, list) and len(data) > 1:
+                        records = data[1]
+                        if records and records[0].get("value") is not None:
+                            val = records[0]["value"]
+                            year = records[0].get("date", "")
+                            
+                            if name == "GDP":
+                                # Convert to trillions for readability
+                                trillions = val / 1_000_000_000_000
+                                results[name] = {"value": f"${trillions:.2f}T", "year": year}
+                            elif name in ("Inflation", "Unemployment"):
+                                results[name] = {"value": f"{val:.1f}%", "year": year}
+                            else:
+                                results[name] = {"value": str(round(val, 2)), "year": year}
                         else:
-                            results[name] = val
+                            results[name] = {"value": "N/A", "year": ""}
                     else:
-                        results[name] = "N/A"
+                        results[name] = {"value": "N/A", "year": ""}
                 else:
-                    print(f"FRED API error: {response.status_code} - {response.text}")
-                    results[name] = "N/A"
+                    print(f"World Bank API error for {name}: {response.status_code}")
+                    results[name] = {"value": "N/A", "year": ""}
             except Exception as e:
-                print(f"Exception fetching FRED for {name}: {e}")
-                results[name] = "N/A"
-                
+                print(f"Exception fetching World Bank indicator {name}: {e}")
+                results[name] = {"value": "N/A", "year": ""}
+
     return results

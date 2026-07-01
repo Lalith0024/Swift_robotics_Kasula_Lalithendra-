@@ -1,56 +1,56 @@
-# Setup Guide
+# Setup
 
-## Prerequisites
+## Requirements
 
-- Node.js (v18+)
-- Python (3.11+)
+- Python 3.11 or later
+- Node.js 18 or later
 
-## Environment Variables
+That's it. No Docker, no external database, no cloud services.
 
-Copy `backend/.env.example` to `backend/.env` and fill in the required keys.
+---
 
-```env
-# At least ONE of the following is required for AI features
-ANTHROPIC_API_KEY=your_anthropic_api_key
-GROQ_API_KEY=your_groq_api_key
+## Backend
 
-# Free News APIs (at least one is required)
-NEWSAPI_KEY=your_newsapi_key
-GNEWS_API_KEY=your_gnews_api_key
-FRED_API_KEY=your_fred_api_key
-```
-
-### Getting Free API Keys
-- **Groq**: https://console.groq.com/keys
-- **NewsAPI**: https://newsapi.org/register
-- **GNews**: https://gnews.io/
-- **FRED**: https://fred.stlouisfed.org/docs/api/api_key.html
-
-## Running the Application
-
-### 1. Backend
-
-Navigate to the `backend` directory, install requirements, and run the server:
+Navigate to the `backend` folder and create a virtual environment:
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate    # on Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
 ```
 
-*Note: The database will be created automatically on the first startup.*
+Seed the database with starter topics and a Zenserp source:
 
-#### Seeding Initial Data
-To populate the database with default topics and sources for demo purposes:
 ```bash
 python seed.py
 ```
 
-### 2. Frontend
+Start the server:
 
-Open a new terminal window, navigate to the `frontend` directory, install dependencies, and run Vite:
+```bash
+uvicorn app.main:app --reload
+```
+
+The API will be running at `http://localhost:8000`. You can explore all endpoints at `http://localhost:8000/docs`.
+
+### Environment variables
+
+The `.env` file in `backend/` already has everything you need:
+
+```
+ZENSERP_API_KEY=386936d0-7520-11f1-9cf8-65009a64d175
+DATABASE_URL=sqlite:///./econwatch.db
+POLLING_INTERVAL_MINUTES=15
+```
+
+The database file (`econwatch.db`) is created automatically in the `backend/` folder the first time the server starts. You don't need to run any migrations or setup commands.
+
+---
+
+## Frontend
+
+In a separate terminal:
 
 ```bash
 cd frontend
@@ -58,4 +58,25 @@ npm install
 npm run dev
 ```
 
-The application will be accessible at `http://localhost:5173`.
+Vite will tell you which port it's running on (usually 5173, sometimes 5174 or 5175 if those are in use). Open that URL in your browser.
+
+---
+
+## Verifying it works
+
+1. Open the frontend URL in your browser. You should see the onboarding modal on first visit.
+2. Go to the dashboard. Click **Fetch Now** to trigger an immediate news fetch instead of waiting 15 minutes.
+3. After a few seconds, refresh — articles should appear in the feed.
+4. The three indicator cards at the top (GDP, Inflation, Unemployment) pull from the World Bank's public API. They should show real values automatically.
+
+---
+
+## Triggering a manual fetch
+
+You can also trigger a fetch cycle directly from the terminal:
+
+```bash
+curl -X POST http://localhost:8000/api/fetch-now
+```
+
+Or from the browser's address bar, hit `http://localhost:8000/docs` and use the `/api/fetch-now` endpoint there.

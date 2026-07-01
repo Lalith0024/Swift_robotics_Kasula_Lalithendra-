@@ -1,42 +1,71 @@
-# EconWatch Project Guide
+# How EconWatch works
 
-## Architecture
+## The pipeline
 
-```mermaid
-graph TD
-    A[APScheduler] -->|Triggers every 15m| B(Orchestrator)
-    B --> C{Fetchers}
-    C -->|NewsAPI| D[Raw Articles]
-    C -->|GNews| D
-    D --> E[Dedup Filter]
-    E -->|Similarity > 75%| F(Discard)
-    E -->|New| G[Relevance Filter]
-    G -->|Noise| F
-    G -->|Signal| H[Summarizer]
-    H -->|LLM: Claude/Groq| I[Structured Data]
-    I --> J[(SQLite DB)]
-    K[FastAPI Backend] <--> J
-    L[React Frontend] <--> K
-    C -->|FRED API| M[Economic Indicators]
-    M --> K
+When the app starts, a background scheduler kicks off every 15 minutes. Here's what happens in each cycle:
+
+```
+Zenserp Search API
+      |
+      v
+  Raw Articles
+      |
+      v
+  Deduplication  <-- drops articles already seen (exact hash + 75% token overlap)
+      |
+      v
+  Relevance Filter  <-- keyword match against tracked topics
+      |
+      v
+  Summarizer  <-- extracts title, summary, category, sentiment
+      |
+      v
+  SQLite DB  <-- stored and served via FastAPI
 ```
 
-## Design Decisions & Rationale
+The frontend polls the `/api/news/` endpoint every 60 seconds and re-renders automatically.
 
-1. **Polling vs. Webhooks (MVP)**:
-   For this MVP, a polling architecture (APScheduler triggering every 15 minutes) was chosen. While webhooks/streaming are more efficient for production news, polling is simpler to set up locally without needing public endpoints or complicated infrastructure, which fits an MVP well.
+Economic indicators (GDP, inflation, unemployment) are fetched separately from the World Bank's public API — no key required — and shown at the top of the dashboard.
 
-2. **Soft-Delete Strategy**:
-   When users remove a topic or source, the entity is marked `is_active = false` rather than hard-deleted. This prevents historical articles from being orphaned and allows users to restore topics easily.
+---
 
-3. **LLM Fallback**:
-   To ensure the pipeline never fully stalls during LLM API rate limits or outages, a keyword-based fallback was implemented for the relevance filter, and a basic truncation fallback was added for summarization.
+## Database
 
-4. **FRED + News APIs Combined**:
-   The dashboard combines qualitative AI-filtered news with hard quantitative data (FRED). This ensures the interface doesn't just read like a typical newsfeed, but acts as a true economic monitor.
+SQLite with SQLAlchemy. Three main tables:
 
-## Known Limitations
+- **articles** — everything that passes the filter. Stores title, summary, source, url, category, sentiment, published_at, and a dedup hash.
+- **topics** — what you're tracking. Soft-deleted (is_active = false) when removed so historical articles aren't orphaned.
+- **sources** — where to fetch from (Zenserp, FRED, etc.)
+- **competitors** — tracked the same way as topics but shown separately in settings.
 
-- **Rate Limits**: Free API keys (especially GNews and NewsAPI) have strict rate limits. The application handles errors gracefully but might stop fetching if limits are exceeded.
-- **Single User**: There is no authentication or multi-tenant support yet. All topics and sources are globally applied.
-- **Language**: The fetchers are currently hardcoded to search for English (`en`) articles.
+Soft-delete is used across the board. Nothing gets hard-deleted from the database.
+
+---
+
+## Deduplication
+
+Two-pass approach:
+
+1. **Exact hash** — SHA-256 of normalized title + source name. Catches identical reposts.
+2. **Token overlap** — Jaccard similarity between the word sets of two titles. Anything above 0.75 is treated as a duplicate. This catches slightly reworded versions of the same story.
+
+---
+
+## Summarization
+
+The summarizer doesn't call an LLM by default (to keep the MVP free to run). It uses a simple extraction approach: takes the first 3 sentences of the article content and derives category and sentiment from keyword matching.
+
+If you add an `ANTHROPIC_API_KEY` or `GROQ_API_KEY` to your `.env`, the code will route through Claude or Llama 3 instead and produce proper structured JSON summaries.
+
+---
+
+## Design choices worth explaining
+
+**Why polling and not webhooks?**
+Webhooks require a public URL and event subscriptions per source. For a local MVP that needs to demo in an interview, polling is simpler to set up and just as effective at this scale.
+
+**Why SQLite?**
+Zero configuration. No separate process to run. The whole database is a single file. For a monitoring tool tracking a few hundred articles a day, SQLite handles it fine. Moving to Postgres later would be a one-line change in the config.
+
+**Why Zenserp?**
+It's a general-purpose search API that works across any topic without requiring source-by-source integrations. The tradeoff is that it's slower than direct RSS feeds and has request limits — but for an MVP it's the right call.
