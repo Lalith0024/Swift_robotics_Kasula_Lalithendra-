@@ -21,9 +21,11 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
     init_db()
     start_scheduler()
+    # Trigger an immediate fetch cycle in the background on startup
+    asyncio.create_task(run_fetch_cycle())
 
 app.include_router(routes_news.router, prefix="/api/news", tags=["News"])
 app.include_router(routes_topics.router, prefix="/api/topics", tags=["Topics"])
