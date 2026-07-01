@@ -6,6 +6,7 @@ import FilterBar from './FilterBar';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import EmptyState from '../shared/EmptyState';
 import { Newspaper } from 'lucide-react';
+import { API_URL } from '../../services/api';
 
 export default function NewsFeed() {
   const { articles, indicators, loading, error, refresh } = useNews();
@@ -15,7 +16,9 @@ export default function NewsFeed() {
   const fetchNow = async () => {
     setFetching(true);
     try {
-      await fetch('http://localhost:8000/api/fetch-now', { method: 'POST' });
+      // API_URL already points to the right backend (localhost in dev, Render in prod)
+      const base = API_URL.replace('/api', '');
+      await fetch(`${base}/api/fetch-now`, { method: 'POST' });
       await refresh();
     } catch (e) {
       console.error('Fetch failed', e);
