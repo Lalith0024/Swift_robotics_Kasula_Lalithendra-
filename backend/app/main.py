@@ -1,10 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import routes_news, routes_topics, routes_sources, routes_competitors
 from app.db.init_db import init_db
 from app.agent.scheduler import start_scheduler
+from app.agent.orchestrator import run_fetch_cycle
+import asyncio
 
-app = FastAPI(title="EconWatch API")
+app = FastAPI(title="EconWatch API", redirect_slashes=False)
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,3 +29,9 @@ app.include_router(routes_competitors.router, prefix="/api/competitors", tags=["
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
+
+@app.post("/api/fetch-now")
+async def fetch_now():
+    """Manually trigger a fetch cycle - useful for testing without waiting 15 minutes."""
+    await run_fetch_cycle()
+    return {"status": "done", "message": "Fetch cycle completed"}

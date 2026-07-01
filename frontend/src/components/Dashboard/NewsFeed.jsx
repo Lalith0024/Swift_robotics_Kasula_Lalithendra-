@@ -10,6 +10,19 @@ import { Newspaper } from 'lucide-react';
 export default function NewsFeed() {
   const { articles, indicators, loading, error, refresh } = useNews();
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [fetching, setFetching] = useState(false);
+
+  const fetchNow = async () => {
+    setFetching(true);
+    try {
+      await fetch('http://localhost:8000/api/fetch-now', { method: 'POST' });
+      await refresh();
+    } catch (e) {
+      console.error('Fetch failed', e);
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const categories = Array.from(new Set(articles.map(a => a.category))).filter(Boolean);
   const filteredArticles = selectedCategory === 'All' 
@@ -28,7 +41,12 @@ export default function NewsFeed() {
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Economic Indicators (US)</h2>
-        <button onClick={refresh} className="btn btn-secondary" style={{ fontSize: '0.875rem' }}>Refresh</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={fetchNow} disabled={fetching} className="btn btn-primary" style={{ fontSize: '0.875rem' }}>
+            {fetching ? '⏳ Fetching...' : '⚡ Fetch Now'}
+          </button>
+          <button onClick={refresh} className="btn btn-secondary" style={{ fontSize: '0.875rem' }}>Refresh</button>
+        </div>
       </div>
       
       <IndicatorStrip indicators={indicators} />

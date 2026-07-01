@@ -19,8 +19,8 @@ def seed_data():
                 
         # Sources
         sources = [
-            {"name": "General News (GNews)", "type": "gnews"},
-            {"name": "Economic Indicators", "type": "fred"}
+            {"name": "Zenserp News Search", "type": "zenserp"},
+            {"name": "Economic Indicators (FRED)", "type": "fred"}
         ]
         for s in sources:
             if not db.query(Source).filter_by(name=s["name"]).first():
